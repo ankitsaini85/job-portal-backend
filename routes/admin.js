@@ -6,6 +6,12 @@ const router = express.Router();
 const Setting = require('../models/Setting');
 const BankTransferRequest = require('../models/BankTransferRequest');
 const Referral = require('../models/Referral');
+const Contact = require('../models/Contact');
+const Message = require('../models/Message');
+const ExamCredential = require('../models/ExamCredential');
+const ExamSession = require('../models/ExamSession');
+const Question = require('../models/Question');
+const JobCard = require('../models/JobCard');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret';
 
@@ -169,6 +175,147 @@ router.put('/users/:id/wallet', requireAdmin, async (req, res) => {
   }
 });
 
+// ===== Job Cards Management =====
+
+// Public: GET /api/admin/job-cards - list all job cards (public for homepage)
+// Adds idempotent seeding of 3 default cards if collection is empty so admin can edit them.
+router.get('/job-cards', async (req, res) => {
+  try {
+    let count = await JobCard.estimatedDocumentCount();
+    if (count === 0) {
+      // Seed defaults ONLY when collection is empty. These are editable later by admin.
+      // Assumption: original static homepage showed three feature areas; adjust copy/images later in admin.
+          const defaults = [
+            {
+              title: 'Data Analytics',
+              name: 'Data Analyst',
+              jobId: 'data-analytics',
+              summary: 'Analyze datasets, build dashboards, and generate insights to support business decisions.',
+              details: 'Work with tools like Excel, SQL, and BI platforms to extract and visualize trends.',
+              imageUrl: 'https://images.unsplash.com/photo-1551281044-8d8d0d8d0d56',
+              order: 1,
+            },
+            {
+              title: 'Data Entry',
+              name: 'Data Entry Specialist',
+              jobId: 'data-entry',
+              summary: 'Digitize documents and maintain accurate records for organizations worldwide.',
+              details: 'Focus on quality, speed, and accuracy to keep databases current and useful.',
+              imageUrl: 'https://images.unsplash.com/photo-1581090700227-1e37b190418e',
+              order: 2,
+            },
+            {
+              title: 'Loan & Mortgage',
+              name: 'Loan & Mortgage Processor',
+              jobId: 'loan-mortgage',
+              summary: 'Assist clients by processing loan applications and managing documentation.',
+              details: 'Coordinate with lenders, verify details, and keep applicants informed.',
+              imageUrl: 'https://assets-news.housing.com/news/wp-content/uploads/2020/12/23144314/What-is-a-mortgage-FB-1200x700-compressed.jpg',
+              order: 3,
+            },
+          ];
+          await JobCard.insertMany(defaults);
+    }
+    const cards = await JobCard.find().sort({ order: 1, createdAt: 1 }).lean();
+    return res.json({ jobCards: cards, seeded: count === 0 });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Admin: POST /api/admin/job-cards - create a new job card
+router.post('/job-cards', requireAdmin, async (req, res) => {
+  try {
+    const { title, name, summary, details, imageUrl, order, jobId, navigationLink } = req.body;
+    if (!title || !name || !summary || !imageUrl) {
+      return res.status(400).json({ message: 'title, name, summary, and imageUrl are required' });
+    }
+    // Basic validation: require http(s) URL for image
+    if (typeof imageUrl !== 'string' || !/^https?:\/\//i.test(imageUrl)) {
+      return res.status(400).json({ message: 'imageUrl must be an http(s) URL' });
+    }
+    let cleanJobId = '';
+    if (jobId) {
+      if (typeof jobId !== 'string' || !/^[a-z0-9\-]{2,50}$/i.test(jobId)) {
+        return res.status(400).json({ message: 'jobId must be 2-50 chars a-z0-9- only' });
+      }
+      cleanJobId = jobId.trim().toLowerCase();
+    }
+    let cleanNavLink = '';
+    if (navigationLink) {
+      if (typeof navigationLink !== 'string') {
+        return res.status(400).json({ message: 'navigationLink must be a string' });
+      }
+      cleanNavLink = navigationLink.trim();
+    }
+    const card = new JobCard({ title, name, summary, details: details || '', imageUrl, order: order || 0, jobId: cleanJobId, navigationLink: cleanNavLink });
+    await card.save();
+    return res.json({ message: 'Job card created', jobCard: card });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Admin: PUT /api/admin/job-cards/:id - update a job card
+router.put('/job-cards/:id', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, name, summary, details, imageUrl, order, jobId, navigationLink } = req.body;
+    const card = await JobCard.findById(id);
+    if (!card) return res.status(404).json({ message: 'Job card not found' });
+
+    if (title !== undefined) card.title = title;
+    if (name !== undefined) card.name = name;
+    if (summary !== undefined) card.summary = summary;
+    if (details !== undefined) card.details = details;
+    if (imageUrl !== undefined) {
+      if (typeof imageUrl !== 'string' || !/^https?:\/\//i.test(imageUrl)) {
+        return res.status(400).json({ message: 'imageUrl must be an http(s) URL' });
+      }
+      card.imageUrl = imageUrl;
+    }
+    if (order !== undefined) card.order = order;
+    if (jobId !== undefined) {
+      if (jobId === '' || jobId === null) {
+        card.jobId = '';
+      } else if (typeof jobId === 'string' && /^[a-z0-9\-]{2,50}$/i.test(jobId)) {
+        card.jobId = jobId.trim().toLowerCase();
+      } else {
+        return res.status(400).json({ message: 'jobId must be 2-50 chars a-z0-9- only' });
+      }
+    }
+    if (navigationLink !== undefined) {
+      if (navigationLink === '' || navigationLink === null) {
+        card.navigationLink = '';
+      } else if (typeof navigationLink === 'string') {
+        card.navigationLink = navigationLink.trim();
+      } else {
+        return res.status(400).json({ message: 'navigationLink must be a string' });
+      }
+    }
+
+    await card.save();
+    return res.json({ message: 'Job card updated', jobCard: card });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Admin: DELETE /api/admin/job-cards/:id - delete a job card
+router.delete('/job-cards/:id', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    await JobCard.findByIdAndDelete(id);
+    return res.json({ message: 'Job card deleted' });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
 module.exports = router;
 
 // Public GET for settings (frontend reads minTransferAmount)
@@ -176,9 +323,13 @@ router.get('/settings', async (req, res) => {
   try {
     const s1 = await Setting.findOne({ key: 'minTransferAmount' });
     const s2 = await Setting.findOne({ key: 'minBankTransfer' });
+    const s3 = await Setting.findOne({ key: 'examStartAt' });
+    const s4 = await Setting.findOne({ key: 'homeHeroImageUrl' });
     const minTransferAmount = s1 ? s1.value : null;
     const minBankTransfer = s2 ? s2.value : null;
-    return res.json({ minTransferAmount, minBankTransfer });
+    const examStartAt = s3 ? s3.value : null;
+    const homeHeroImageUrl = s4 ? s4.value : null;
+    return res.json({ minTransferAmount, minBankTransfer, examStartAt, homeHeroImageUrl });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ message: 'Server error' });
@@ -188,7 +339,7 @@ router.get('/settings', async (req, res) => {
 // Admin: update settings
 router.put('/settings', requireAdmin, async (req, res) => {
   try {
-    const { minTransferAmount, minBankTransfer } = req.body;
+    const { minTransferAmount, minBankTransfer, homeHeroImageUrl } = req.body;
     const result = {};
     if (typeof minTransferAmount === 'number') {
       const s = await Setting.findOneAndUpdate({ key: 'minTransferAmount' }, { value: minTransferAmount }, { upsert: true, new: true });
@@ -197,6 +348,34 @@ router.put('/settings', requireAdmin, async (req, res) => {
     if (typeof minBankTransfer === 'number') {
       const s2 = await Setting.findOneAndUpdate({ key: 'minBankTransfer' }, { value: minBankTransfer }, { upsert: true, new: true });
       result.minBankTransfer = s2.value;
+    }
+    // examStartAt may be provided as ISO string or null to clear
+    if (req.body.hasOwnProperty('examStartAt')) {
+      const v = req.body.examStartAt;
+      if (v === null || v === '') {
+        await Setting.findOneAndDelete({ key: 'examStartAt' });
+        result.examStartAt = null;
+      } else {
+        const d = new Date(v);
+        if (isNaN(d.getTime())) return res.status(400).json({ message: 'Invalid examStartAt datetime' });
+        const s3 = await Setting.findOneAndUpdate({ key: 'examStartAt' }, { value: d.toISOString() }, { upsert: true, new: true });
+        result.examStartAt = s3.value;
+      }
+    }
+    // homeHeroImageUrl can be string or null/empty to clear
+    if (req.body.hasOwnProperty('homeHeroImageUrl')) {
+      const val = req.body.homeHeroImageUrl;
+      if (val === null || val === '') {
+        await Setting.findOneAndDelete({ key: 'homeHeroImageUrl' });
+        result.homeHeroImageUrl = null;
+      } else {
+        // Basic validation: require http(s) URL
+        if (typeof val !== 'string' || !/^https?:\/\//i.test(val)) {
+          return res.status(400).json({ message: 'homeHeroImageUrl must be an http(s) URL' });
+        }
+        const s4 = await Setting.findOneAndUpdate({ key: 'homeHeroImageUrl' }, { value: val.trim() }, { upsert: true, new: true });
+        result.homeHeroImageUrl = s4.value;
+      }
     }
     return res.json({ message: 'Updated', ...result });
   } catch (err) {
@@ -320,6 +499,125 @@ router.put('/transfer-requests/:id', requireAdmin, async (req, res) => {
     }
 
     return res.json({ message: 'Updated', request: doc });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Admin: list contact submissions
+router.get('/contacts', requireAdmin, async (req, res) => {
+  try {
+    const list = await Contact.find().sort({ createdAt: -1 }).limit(1000).lean();
+    return res.json({ contacts: list });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Admin: delete a contact submission
+router.delete('/contacts/:id', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    await Contact.findByIdAndDelete(id);
+    return res.json({ message: 'Deleted' });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Admin: list chat messages
+router.get('/messages', requireAdmin, async (req, res) => {
+  try {
+    const list = await Message.find().sort({ createdAt: -1 }).limit(2000).lean();
+    return res.json({ messages: list });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Admin: clear all chat messages
+router.delete('/messages', requireAdmin, async (req, res) => {
+  try {
+    await Message.deleteMany({});
+    return res.json({ message: 'Messages cleared' });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Admin: manage exam credentials
+
+
+router.get('/exam-credentials', requireAdmin, async (req, res) => {
+  try {
+    const list = await ExamCredential.find().sort({ createdAt: -1 }).lean();
+    return res.json({ credentials: list });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+router.delete('/exam-credentials/:id', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    await ExamCredential.findByIdAndDelete(id);
+    return res.json({ message: 'Deleted' });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Admin: view exam results (sessions that have been completed)
+router.get('/exam-results', requireAdmin, async (req, res) => {
+  try {
+    const list = await ExamSession.find().sort({ startedAt: -1 }).limit(2000).populate('credentialId', 'username label').lean();
+    return res.json({ results: list });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Admin: clear exam sessions (danger)
+router.delete('/exam-results', requireAdmin, async (req, res) => {
+  try {
+    await ExamSession.deleteMany({});
+    return res.json({ message: 'Exam sessions cleared' });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Admin: manage exam questions
+router.post('/exam-credentials', requireAdmin, async (req, res) => {
+  try {
+    const { username, password, label } = req.body || {};
+    if (!username || !password) return res.status(400).json({ message: 'username and password required' });
+    const existing = await ExamCredential.findOne({ username });
+    if (existing) return res.status(400).json({ message: 'Credential with this username already exists' });
+
+    const cred = new ExamCredential({ username, password, label });
+    await cred.save();
+    return res.json({ message: 'Created', credential: { id: cred._id, username: cred.username, label: cred.label } });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+router.delete('/exam-questions/:id', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    await Question.findByIdAndDelete(id);
+    return res.json({ message: 'Deleted' });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ message: 'Server error' });
