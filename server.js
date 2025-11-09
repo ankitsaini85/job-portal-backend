@@ -16,7 +16,7 @@ const messagesRoutes = require('./routes/messages');
 const examRoutes = require('./routes/exam');
 const app = express();
 app.use(cors({
-  origin: ["http://officialloanmortgage.in", "http://localhost:5173"],
+  origin: ["http://officialloanmortgage.in","https://officialloanmortgage.in", "http://localhost:5173"],
   methods: ["GET", "POST", "PUT", "DELETE"],
   credentials: true
 }));
