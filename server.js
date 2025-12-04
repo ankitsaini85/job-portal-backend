@@ -3,6 +3,7 @@ const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
 
+ // if not already imported
 // Load environment variables as early as possible so all modules read the same values
 dotenv.config();
 
@@ -54,6 +55,34 @@ app.get("/my-ip", async (req, res) => {
     res.json({ outbound_ip: data.ip });
   } catch (err) {
     res.json({ error: "Could not fetch IP", details: err.message });
+  }
+});
+
+
+app.get("/api/test-watchpay", async (req, res) => {
+  try {
+    const formData = new URLSearchParams();
+    formData.append("version", "1.0");
+    formData.append("mch_id", "100666761"); 
+    formData.append("notify_url", "https://job-portal-backend-ctvu.onrender.com/callback"); 
+    formData.append("mch_order_no", "TEST" + Date.now());
+    formData.append("pay_type", "101"); 
+    formData.append("trade_amount", "1");
+    formData.append("order_date", "20240204124530");
+    formData.append("goods_name", "Test");
+    formData.append("sign_type", "MD5");
+    formData.append("sign", "DUMMY");
+
+    const response = await fetch("https://api.watchglb.com/pay/web", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: formData
+    });
+
+    const html = await response.text();
+    res.send(html);
+  } catch (err) {
+    res.json({ error: err.message });
   }
 });
 
