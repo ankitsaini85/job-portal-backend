@@ -47,5 +47,15 @@ app.use('/api/messages', messagesRoutes);
 app.use('/api/exam', examRoutes);
 
 app.get("/", (req, res) => res.send("JobPortal API"));
+app.get("/my-ip", async (req, res) => {
+  try {
+    const response = await fetch("https://api.ipify.org?format=json");
+    const data = await response.json();
+    res.json({ outbound_ip: data.ip });
+  } catch (err) {
+    res.json({ error: "Could not fetch IP", details: err.message });
+  }
+});
+
 
 app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
