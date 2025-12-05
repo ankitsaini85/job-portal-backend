@@ -64,14 +64,14 @@ app.get("/api/test-watchpay", async (req, res) => {
     const formData = new URLSearchParams();
     formData.append("version", "1.0");
     formData.append("mch_id", "100666761"); 
-    formData.append("notify_url", "https://job-portal-backend-ctvu.onrender.com/callback"); 
-    formData.append("mch_order_no", "TEST" + Date.now());
+    formData.append("notify_url", "https://job-portal-backend-ctvu.onrender.com/api/payment/watchpay/callback"); 
+    formData.append("mch_order_no", "ORD20250204132510");
     formData.append("pay_type", "101"); 
-    formData.append("trade_amount", "1");
+    formData.append("trade_amount", "100");
     formData.append("order_date", "20240204124530");
     formData.append("goods_name", "Test");
     formData.append("sign_type", "MD5");
-    formData.append("sign", "DUMMY");
+    formData.append("sign", "cfc1b8662bba4c28c9b8810bb0b01c24");
 
     const response = await fetch("https://api.watchglb.com/pay/web", {
       method: "POST",
