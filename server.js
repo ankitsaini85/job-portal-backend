@@ -61,45 +61,67 @@ app.get("/my-ip", async (req, res) => {
 
 app.post("/api/test-watchpay", async (req, res) => {
   try {
-    // ---- 1. Correct order_date (Your local time converted manually if needed) ----
-    const orderDate = "2025-12-05 13:39:38"; // must match signature!
+    const merchantKey = "3AHN5CREKH4PBSYO8VVP4B8MGGIYKOY9";
 
-    // ---- 2. FINAL CORRECT SIGNATURE for given parameters ----
-    const sign = "aebd3c94c73da1e87aa40956ee62e7bb";
+    // Real timestamp (must match sign)
+    const params = {
+      version: "1.0",
+      goods_name: "wallet",
+      mch_id: "100666761",
+      mch_order_no: "ORD20250204132510",
+      notify_url: "https://job-portal-backend-ctvu.onrender.com/api/payment/watchpay/callback",
+      order_date: "2025-12-05 13:39:38",
+      pay_type: "101",
+      trade_amount: "100"
+    };
 
-    // ---- 3. Build formData exactly as WatchPay requires ----
-    const formData = new URLSearchParams();
-    formData.append("version", "1.0");
-    formData.append("goods_name", "wallet");
-    formData.append("mch_id", "100666761");
-    formData.append("mch_order_no", "ORD20250204132510");
-    formData.append("notify_url", "https://job-portal-backend-ctvu.onrender.com/api/payment/watchpay/callback");
-    formData.append("order_date", orderDate);
-    formData.append("pay_type", "101");
-    formData.append("trade_amount", "100");
-    formData.append("sign_type", "MD5");
-    formData.append("sign", sign);
+    // Build sign string EXACTLY like PHP
+    let signStr =
+      `goods_name=${params.goods_name}&` +
+      `mch_id=${params.mch_id}&` +
+      `mch_order_no=${params.mch_order_no}&` +
+      `notify_url=${params.notify_url}&` +
+      `order_date=${params.order_date}&` +
+      `pay_type=${params.pay_type}&` +
+      `trade_amount=${params.trade_amount}&` +
+      `version=${params.version}` +
+      `&key=${merchantKey}`;
 
-    console.log("RAW BODY SENT:", formData.toString());
+    const sign = crypto.createHash("md5").update(signStr).digest("hex");
 
-    // ---- 4. Send POST request to WatchPay server ----
+    // ⭐ SEND RAW BODY (NOT ENCODED) ⭐
+    const rawBody =
+      `goods_name=${params.goods_name}` +
+      `&mch_id=${params.mch_id}` +
+      `&mch_order_no=${params.mch_order_no}` +
+      `&notify_url=${params.notify_url}` +
+      `&order_date=${params.order_date}` +
+      `&pay_type=${params.pay_type}` +
+      `&trade_amount=${params.trade_amount}` +
+      `&version=${params.version}` +
+      `&sign_type=MD5` +
+      `&sign=${sign}`;
+
+    console.log("RAW BODY SENT (CORRECT):", rawBody);
+
     const response = await fetch("https://api.watchglb.com/pay/web", {
       method: "POST",
-      headers: { 
+      headers: {
         "Content-Type": "application/x-www-form-urlencoded",
         "User-Agent": "Mozilla/5.0"
       },
-      body: formData
+      body: rawBody // <- SEND RAW, NOT URL ENCODED
     });
 
-    const result = await response.text();
-    res.send(result);
+    const html = await response.text();
+    res.send(html);
 
   } catch (err) {
     console.error(err);
     res.json({ error: err.message });
   }
 });
+
 
 
 app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
