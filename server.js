@@ -95,7 +95,8 @@ app.get("/api/test-watchpay", async (req, res) => {
       "&pay_type=" + params.pay_type +
       "&trade_amount=" + params.trade_amount +
       "&version=" + params.version +
-      "&key=3AHN5CREKH4PBSYO8VVP4B8MGGIYKOY9";
+      // "&key=3AHN5CREKH4PBSYO8VVP4B8MGGIYKOY9";
+      "&key=FKGCUNNQBIMJGAQAVGEDF6QUW0LNO3FB";
 
     console.log("\n----- UTF8 SIGN STRING (before GBK) -----");
     console.log(signStr);
