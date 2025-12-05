@@ -59,29 +59,44 @@ app.get("/my-ip", async (req, res) => {
 });
 
 
-app.get("/api/test-watchpay", async (req, res) => {
+app.post("/api/test-watchpay", async (req, res) => {
   try {
+    // ---- 1. Correct order_date (Your local time converted manually if needed) ----
+    const orderDate = "2025-12-05 13:39:38"; // must match signature!
+
+    // ---- 2. FINAL CORRECT SIGNATURE for given parameters ----
+    const sign = "aebd3c94c73da1e87aa40956ee62e7bb";
+
+    // ---- 3. Build formData exactly as WatchPay requires ----
     const formData = new URLSearchParams();
     formData.append("version", "1.0");
-    formData.append("mch_id", "100666761"); 
-    formData.append("notify_url", "https://job-portal-backend-ctvu.onrender.com/api/payment/watchpay/callback"); 
-    formData.append("mch_order_no", "ORD20250204132510");
-    formData.append("pay_type", "101"); 
-    formData.append("trade_amount", "100");
-    formData.append("order_date", "2025-12-05 13:39:38");
     formData.append("goods_name", "wallet");
+    formData.append("mch_id", "100666761");
+    formData.append("mch_order_no", "ORD20250204132510");
+    formData.append("notify_url", "https://job-portal-backend-ctvu.onrender.com/api/payment/watchpay/callback");
+    formData.append("order_date", orderDate);
+    formData.append("pay_type", "101");
+    formData.append("trade_amount", "100");
     formData.append("sign_type", "MD5");
-    formData.append("sign", "aebd3c94c73da1e87aa40956ee62e7bb");
+    formData.append("sign", sign);
 
+    console.log("RAW BODY SENT:", formData.toString());
+
+    // ---- 4. Send POST request to WatchPay server ----
     const response = await fetch("https://api.watchglb.com/pay/web", {
       method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      headers: { 
+        "Content-Type": "application/x-www-form-urlencoded",
+        "User-Agent": "Mozilla/5.0"
+      },
       body: formData
     });
 
-    const html = await response.text();
-    res.send(html);
+    const result = await response.text();
+    res.send(result);
+
   } catch (err) {
+    console.error(err);
     res.json({ error: err.message });
   }
 });
