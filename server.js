@@ -69,7 +69,7 @@ app.get("/api/test-watchpay", async (req, res) => {
     formData.append("pay_type", "101"); 
     formData.append("trade_amount", "100");
     formData.append("order_date", "2025-12-05 13:39:38");
-    formData.append("goods_name", "Test");
+    formData.append("goods_name", "wallet");
     formData.append("sign_type", "MD5");
     formData.append("sign", "aebd3c94c73da1e87aa40956ee62e7bb");
 
