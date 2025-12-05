@@ -60,11 +60,50 @@ app.get("/my-ip", async (req, res) => {
 });
 
 
+function buildSignString(params, key) {
+  
+  let signStr = "";
+
+  // EXACT order from your signapi.php
+
+  // 1. bank_code (skip because you are not using it)
+  // 2. goods_name
+  signStr += `goods_name=${params.goods_name}&`;
+
+  // 3. mch_id
+  signStr += `mch_id=${params.mch_id}&`;
+
+  // 4. mch_order_no
+  signStr += `mch_order_no=${params.mch_order_no}&`;
+
+  // 5. mch_return_msg (skip)
+  // 6. notify_url
+  signStr += `notify_url=${params.notify_url}&`;
+
+  // 7. order_date
+  signStr += `order_date=${params.order_date}&`;
+
+  // 8. page_url (skip)
+  // 9. pay_type
+  signStr += `pay_type=${params.pay_type}&`;
+
+  // 10. trade_amount
+  signStr += `trade_amount=${params.trade_amount}&`;
+
+  // 11. version
+  signStr += `version=${params.version}`;
+
+  // Append key exactly like PHP
+  signStr += `&key=${key}`;
+
+  return signStr;
+}
+
+// ------------------ WATCHPAY TEST ROUTE ------------------
 app.post("/api/test-watchpay", async (req, res) => {
   try {
-    const merchantKey = "3AHN5CREKH4PBSYO8VVP4B8MGGIYKOY9";
+    const merchantKey = "3AHN5CREKH4PBSYO8VVP4B8MGGIYKOY9"; // your real key
 
-    // Real timestamp (must match sign)
     const params = {
       version: "1.0",
       goods_name: "wallet",
@@ -76,21 +115,17 @@ app.post("/api/test-watchpay", async (req, res) => {
       trade_amount: "100"
     };
 
-    // Build sign string EXACTLY like PHP
-    let signStr =
-      `goods_name=${params.goods_name}&` +
-      `mch_id=${params.mch_id}&` +
-      `mch_order_no=${params.mch_order_no}&` +
-      `notify_url=${params.notify_url}&` +
-      `order_date=${params.order_date}&` +
-      `pay_type=${params.pay_type}&` +
-      `trade_amount=${params.trade_amount}&` +
-      `version=${params.version}` +
-      `&key=${merchantKey}`;
+    // Build sign string
+    const signStr = buildSignString(params, merchantKey);
+    console.log("\n---------------- SIGN STRING ----------------");
+    console.log(signStr);
+    console.log("---------------------------------------------\n");
 
+    // Create MD5 signature
     const sign = crypto.createHash("md5").update(signStr).digest("hex");
+    console.log("GENERATED SIGN:", sign);
 
-    // ⭐ SEND RAW BODY (NOT ENCODED) ⭐
+    // ---------------- RAW BODY (NO URL ENCODING) ----------------
     const rawBody =
       `goods_name=${params.goods_name}` +
       `&mch_id=${params.mch_id}` +
@@ -103,26 +138,25 @@ app.post("/api/test-watchpay", async (req, res) => {
       `&sign_type=MD5` +
       `&sign=${sign}`;
 
-    console.log("RAW BODY SENT (CORRECT):", rawBody);
+    console.log("\nRAW BODY SENT:", rawBody);
 
+    // ---------------- SEND TO WATCHPAY ----------------
     const response = await fetch("https://api.watchglb.com/pay/web", {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
         "User-Agent": "Mozilla/5.0"
       },
-      body: rawBody // <- SEND RAW, NOT URL ENCODED
+      body: rawBody
     });
 
-    const html = await response.text();
-    res.send(html);
+    const result = await response.text();
+    return res.send(result);
 
   } catch (err) {
-    console.error(err);
-    res.json({ error: err.message });
+    console.error("WATCHPAY ERROR:", err);
+    return res.json({ error: err.message });
   }
 });
-
-
 
 app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
