@@ -3,6 +3,8 @@ const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
 const crypto = require("crypto");
+const iconv = require("iconv-lite");
+
 
  // if not already imported
 // Load environment variables as early as possible so all modules read the same values
@@ -60,101 +62,69 @@ app.get("/my-ip", async (req, res) => {
 });
 
 
-function buildSignString(params, key) {
-  
-  let signStr = "";
-
-  // EXACT order from your signapi.php
-
-  // 1. bank_code (skip because you are not using it)
-  // 2. goods_name
-  signStr += `goods_name=${params.goods_name}&`;
-
-  // 3. mch_id
-  signStr += `mch_id=${params.mch_id}&`;
-
-  // 4. mch_order_no
-  signStr += `mch_order_no=${params.mch_order_no}&`;
-
-  // 5. mch_return_msg (skip)
-  // 6. notify_url
-  signStr += `notify_url=${params.notify_url}&`;
-
-  // 7. order_date
-  signStr += `order_date=${params.order_date}&`;
-
-  // 8. page_url (skip)
-  // 9. pay_type
-  signStr += `pay_type=${params.pay_type}&`;
-
-  // 10. trade_amount
-  signStr += `trade_amount=${params.trade_amount}&`;
-
-  // 11. version
-  signStr += `version=${params.version}`;
-
-  // Append key exactly like PHP
-  signStr += `&key=${key}`;
-
-  return signStr;
+// Convert UTF-8 → GBK (same as PHP convToGBK)
+function toGBK(str) {
+  return iconv.encode(str, "gbk");
 }
 
-// ------------------ WATCHPAY TEST ROUTE ------------------
-app.post("/api/test-watchpay", async (req, res) => {
-  try {
-    const merchantKey = "3AHN5CREKH4PBSYO8VVP4B8MGGIYKOY9"; // your real key
+function md5(str) {
+  return crypto.createHash("md5").update(str).digest("hex");
+}
 
+app.get("/api/test-watchpay", async (req, res) => {
+  try {
     const params = {
       version: "1.0",
       goods_name: "wallet",
       mch_id: "100666761",
-      mch_order_no: "ORD20250204132510",
+      mch_order_no: "ORD20251205133938",
       notify_url: "https://job-portal-backend-ctvu.onrender.com/api/payment/watchpay/callback",
       order_date: "2025-12-05 13:39:38",
       pay_type: "101",
-      trade_amount: "100"
+      trade_amount: "100",
+      sign_type: "MD5"
     };
 
-    // Build sign string
-    const signStr = buildSignString(params, merchantKey);
-    console.log("\n---------------- SIGN STRING ----------------");
+    // Build SIGN STRING in correct order
+    let signStr =
+      "goods_name=" + params.goods_name +
+      "&mch_id=" + params.mch_id +
+      "&mch_order_no=" + params.mch_order_no +
+      "&notify_url=" + params.notify_url +
+      "&order_date=" + params.order_date +
+      "&pay_type=" + params.pay_type +
+      "&trade_amount=" + params.trade_amount +
+      "&version=" + params.version +
+      "&key=3AHN5CREKH4PBSYO8VVP4B8MGGIYKOY9";
+
+    console.log("\n----- UTF8 SIGN STRING (before GBK) -----");
     console.log(signStr);
-    console.log("---------------------------------------------\n");
 
-    // Create MD5 signature
-    const sign = crypto.createHash("md5").update(signStr).digest("hex");
-    console.log("GENERATED SIGN:", sign);
+    // Convert FULL STRING to GBK before hashing
+    const gbkBuffer = toGBK(signStr);
+    const sign = md5(gbkBuffer);
 
-    // ---------------- RAW BODY (NO URL ENCODING) ----------------
-    const rawBody =
-      `goods_name=${params.goods_name}` +
-      `&mch_id=${params.mch_id}` +
-      `&mch_order_no=${params.mch_order_no}` +
-      `&notify_url=${params.notify_url}` +
-      `&order_date=${params.order_date}` +
-      `&pay_type=${params.pay_type}` +
-      `&trade_amount=${params.trade_amount}` +
-      `&version=${params.version}` +
-      `&sign_type=MD5` +
-      `&sign=${sign}`;
+    console.log("\n----- GENERATED SIGN (GBK MD5) -----");
+    console.log(sign);
 
-    console.log("\nRAW BODY SENT:", rawBody);
+    // Prepare POST form body
+    const formData = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => formData.append(k, v));
+    formData.append("sign", sign);
 
-    // ---------------- SEND TO WATCHPAY ----------------
+    console.log("\n----- RAW BODY SENT -----");
+    console.log(formData.toString());
+
     const response = await fetch("https://api.watchglb.com/pay/web", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        "User-Agent": "Mozilla/5.0"
-      },
-      body: rawBody
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: formData
     });
 
-    const result = await response.text();
-    return res.send(result);
+    const html = await response.text();
+    return res.send(html);
 
   } catch (err) {
-    console.error("WATCHPAY ERROR:", err);
     return res.json({ error: err.message });
   }
 });
