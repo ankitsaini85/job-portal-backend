@@ -68,10 +68,10 @@ app.get("/api/test-watchpay", async (req, res) => {
     formData.append("mch_order_no", "ORD20250204132510");
     formData.append("pay_type", "101"); 
     formData.append("trade_amount", "100");
-    formData.append("order_date", "20251205133938");
+    formData.append("order_date", "2025-12-05 13:39:38");
     formData.append("goods_name", "Test");
     formData.append("sign_type", "MD5");
-    formData.append("sign", "4720be5aaad7da813cb69886555426cd");
+    formData.append("sign", "cfafd9c987fa717dcdd74d016b85bd55");
 
     const response = await fetch("https://api.watchglb.com/pay/web", {
       method: "POST",
