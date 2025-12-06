@@ -56,7 +56,7 @@ app.use('/api/messages', messagesRoutes);
 // exam endpoints
 app.use('/api/exam', examRoutes);
 
-app.get("/", (req, res) => res.send("JobPortal API"));
+app.get("/", (req, res) => res.send("JobPortal API from server.js"));
 app.get("/my-ip", async (req, res) => {
   try {
     const response = await fetch("https://api.ipify.org?format=json");
