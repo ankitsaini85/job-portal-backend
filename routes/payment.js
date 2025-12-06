@@ -115,6 +115,13 @@ router.post('/watchpay/create', async (req, res) => {
     const gatewayDomain = (WATCHPAY_API_DOMAIN || 'https://api.watchglb.com');
     const gatewayUrl = `${gatewayDomain.replace(/\/$/, '')}/pay/web`;
 
+    // Log notify url and order details so we can verify the provider received our notify URL
+    try {
+      console.log('WATCHPAY create -> notify_url:', params.notify_url, 'mchOrderNo:', mchOrderNo, 'trade_amount:', params.trade_amount, 'gatewayUrl:', gatewayUrl);
+    } catch (e) {
+      // ignore logging errors
+    }
+
     const gwResp = await fetch(gatewayUrl, {
       method: 'POST',
       headers: {
