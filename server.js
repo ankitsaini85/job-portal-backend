@@ -4,6 +4,9 @@ const cors = require("cors");
 const dotenv = require("dotenv");
 const crypto = require("crypto");
 const iconv = require("iconv-lite");
+// near top of server.js
+const paymentRoutes = require('./routes/payment');
+
 
 
  // if not already imported
@@ -40,6 +43,9 @@ connectDB(MONGO_URI);
 
 app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoutes);
+// mount payments routes
+app.use('/api/payment', paymentRoutes);
+
 // payment routes removed (Stripe) — WatchPay integration will add new endpoints under /api/payment/watchpay
 app.use("/api/transfer", transferRoutes);
 app.use('/api/referral', referralRoutes);
@@ -71,63 +77,62 @@ function md5(str) {
   return crypto.createHash("md5").update(str).digest("hex");
 }
 
-app.get("/api/test-watchpay", async (req, res) => {
-  try {
-    const params = {
-      version: "1.0",
-      goods_name: "wallet",
-      mch_id: "100666761",
-      mch_order_no: "ORD20251205133938",
-      notify_url: "https://job-portal-backend-ctvu.onrender.com/api/payment/watchpay/callback",
-      order_date: "2025-12-05 13:39:38",
-      pay_type: "101",
-      trade_amount: "100",
-      sign_type: "MD5"
-    };
+// app.get("/api/test-watchpay", async (req, res) => {
+//   try {
+//     const params = {
+//       version: "1.0",
+//       goods_name: "wallet",
+//       mch_id: "100666761",
+//       mch_order_no: "ORD20251205133938",
+//       notify_url: "https://job-portal-backend-ctvu.onrender.com/api/payment/watchpay/callback",
+//       order_date: "2025-12-05 13:39:38",
+//       pay_type: "101",
+//       trade_amount: "100",
+//       sign_type: "MD5"
+//     };
 
-    // Build SIGN STRING in correct order
-    let signStr =
-      "goods_name=" + params.goods_name +
-      "&mch_id=" + params.mch_id +
-      "&mch_order_no=" + params.mch_order_no +
-      "&notify_url=" + params.notify_url +
-      "&order_date=" + params.order_date +
-      "&pay_type=" + params.pay_type +
-      "&trade_amount=" + params.trade_amount +
-      "&version=" + params.version +
-      // "&key=3AHN5CREKH4PBSYO8VVP4B8MGGIYKOY9";
-      "&key=FKGCUNNQBIMJGAQAVGEDF6QUW0LNO3FB";
+//     // Build SIGN STRING in correct order
+//     let signStr =
+//       "goods_name=" + params.goods_name +
+//       "&mch_id=" + params.mch_id +
+//       "&mch_order_no=" + params.mch_order_no +
+//       "&notify_url=" + params.notify_url +
+//       "&order_date=" + params.order_date +
+//       "&pay_type=" + params.pay_type +
+//       "&trade_amount=" + params.trade_amount +
+//       "&version=" + params.version +
+//       // "&key=3AHN5CREKH4PBSYO8VVP4B8MGGIYKOY9";
+//       "&key=FKGCUNNQBIMJGAQAVGEDF6QUW0LNO3FB";
 
-    console.log("\n----- UTF8 SIGN STRING (before GBK) -----");
-    console.log(signStr);
+//     console.log("\n----- UTF8 SIGN STRING (before GBK) -----");
+//     console.log(signStr);
 
-    // Convert FULL STRING to GBK before hashing
-    const gbkBuffer = toGBK(signStr);
-    const sign = md5(gbkBuffer);
+//     // Convert FULL STRING to GBK before hashing
+//     const gbkBuffer = toGBK(signStr);
+//     const sign = md5(gbkBuffer);
 
-    console.log("\n----- GENERATED SIGN (GBK MD5) -----");
-    console.log(sign);
+//     console.log("\n----- GENERATED SIGN (GBK MD5) -----");
+//     console.log(sign);
 
-    // Prepare POST form body
-    const formData = new URLSearchParams();
-    Object.entries(params).forEach(([k, v]) => formData.append(k, v));
-    formData.append("sign", sign);
+//     // Prepare POST form body
+//     const formData = new URLSearchParams();
+//     Object.entries(params).forEach(([k, v]) => formData.append(k, v));
+//     formData.append("sign", sign);
 
-    console.log("\n----- RAW BODY SENT -----");
-    console.log(formData.toString());
+//     console.log("\n----- RAW BODY SENT -----");
+//     console.log(formData.toString());
 
-    const response = await fetch("https://api.watchglb.com/pay/web", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: formData
-    });
+//     const response = await fetch("https://api.watchglb.com/pay/web", {
+//       method: "POST",
+//       headers: { "Content-Type": "application/x-www-form-urlencoded" },
+//       body: formData
+//     });
 
-    const html = await response.text();
-    return res.send(html);
+//     const html = await response.text();
+//     return res.send(html);
 
-  } catch (err) {
-    return res.json({ error: err.message });
-  }
-});
-
+//   } catch (err) {
+//     return res.json({ error: err.message });
+//   }
+// });
 app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
