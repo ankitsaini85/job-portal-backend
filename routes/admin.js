@@ -596,7 +596,7 @@ router.delete('/exam-results', requireAdmin, async (req, res) => {
   }
 });
 
-// Admin: manage exam questions
+// Admin: create exam credentials
 router.post('/exam-credentials', requireAdmin, async (req, res) => {
   try {
     const { username, password, label } = req.body || {};
@@ -613,6 +613,38 @@ router.post('/exam-credentials', requireAdmin, async (req, res) => {
   }
 });
 
+// Admin: manage exam questions
+// GET all questions
+router.get('/exam-questions', requireAdmin, async (req, res) => {
+  try {
+    const list = await Question.find().sort({ createdAt: 1 }).lean();
+    return res.json({ questions: list });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// POST create a question
+router.post('/exam-questions', requireAdmin, async (req, res) => {
+  try {
+    const { text, choices, correctIndex } = req.body;
+    if (!text || !Array.isArray(choices) || choices.length < 2) {
+      return res.status(400).json({ message: 'text and at least 2 choices required' });
+    }
+    if (typeof correctIndex !== 'number' || correctIndex < 0 || correctIndex >= choices.length) {
+      return res.status(400).json({ message: 'correctIndex must be valid' });
+    }
+    const q = new Question({ text, choices, correctIndex });
+    await q.save();
+    return res.json({ message: 'Question created', question: q });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// DELETE a question
 router.delete('/exam-questions/:id', requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
