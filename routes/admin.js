@@ -1,6 +1,7 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const bcrypt = require('bcrypt');
 const mongoose = require('mongoose');
 const router = express.Router();
 const Setting = require('../models/Setting');
@@ -14,6 +15,7 @@ const Question = require('../models/Question');
 const JobCard = require('../models/JobCard');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev_secret';
+const SALT_ROUNDS = 10;
 
 // POST /api/admin/login
 // body: { email, password }
@@ -56,6 +58,29 @@ router.get('/users', requireAdmin, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// PUT /api/admin/users/:id/password - reset a user's password (admin only)
+// body: { password }
+router.put('/users/:id/password', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { password } = req.body || {};
+    if (!password || typeof password !== 'string' || password.length < 8) {
+      return res.status(400).json({ message: 'Password must be at least 8 characters' });
+    }
+    const user = await User.findById(id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    const hashed = await bcrypt.hash(password, SALT_ROUNDS);
+    user.password = hashed;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+    await user.save();
+    return res.json({ message: 'Password updated' });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 
